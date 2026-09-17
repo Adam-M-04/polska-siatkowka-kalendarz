@@ -14,7 +14,7 @@ zwracają pusty plik — historia z nich znika.
 
 1. **Plik → Nowa subskrypcja kalendarza…**
 2. Wklej adres:
-   `https://<użytkownik>.github.io/polska-siatkowka-kalendarz/kadra-mezczyzn.ics`
+   `https://Adam-M-04.github.io/polska-siatkowka-kalendarz/kadra-mezczyzn.ics`
 3. **Odświeżanie: co godzinę.**
 4. W sekcji „Usuń” **nie zaznaczaj „Powiadomienia”** — inaczej stracisz
    przypomnienie 15 minut przed pierwszą piłką, które jest wbudowane w feed.
@@ -22,7 +22,7 @@ zwracają pusty plik — historia z nich znika.
 Na iPhonie kalendarz dojedzie sam, jeśli w iCloud masz włączoną synchronizację
 kalendarzy (subskrypcja dodana na Macu propaguje się na telefon).
 
-Strona z gotowym przyciskiem subskrypcji: `https://<użytkownik>.github.io/polska-siatkowka-kalendarz/`
+Strona z gotowym przyciskiem subskrypcji: `https://Adam-M-04.github.io/polska-siatkowka-kalendarz/`
 
 ---
 

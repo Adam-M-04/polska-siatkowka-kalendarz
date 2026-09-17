@@ -106,6 +106,11 @@ id = "826"
 reason = "błędna data"
 ```
 
+`provisional = true` to wpis „na zakładkę”: znika sam w chwili, gdy ten sam
+mecz (±45 min) pojawi się w VIS albo u PZPS. Tak dopisuje się terminy znane
+z mediów, zanim trafią do API — typowo faza pucharowa ME, bo CEV ogłasza pary
+dzień lub dwa przed wgraniem ich do VIS. Nie trzeba potem niczego kasować.
+
 Wpisy starsze niż okno kalendarza są pomijane automatycznie — nie trzeba ich
 kasować.
 

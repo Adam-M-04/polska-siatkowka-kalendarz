@@ -123,6 +123,7 @@ class Match:
     tv: str = ""
     score: str = ""
     extra: list[str] = field(default_factory=list)
+    provisional: bool = False   # wpis ręczny, który ma ustąpić danym z API
 
     @property
     def key(self) -> str:
@@ -289,11 +290,14 @@ def load_overrides(path: Path) -> tuple[list[Match], set[str]]:
     config = tomllib.loads(path.read_text(encoding="utf-8"))
 
     added: list[Match] = []
-    for index, entry in enumerate(config.get("add", [])):
+    for entry in config.get("add", []):
         local = datetime.strptime(entry["start"], "%Y-%m-%d %H:%M").replace(tzinfo=WARSAW)
+        # Identyfikator z treści, nie z kolejności w pliku — przestawienie wpisów
+        # nie może zmienić UID-a, bo kalendarz skasowałby i dodał je od nowa.
+        slug = re.sub(r"[^a-z0-9]+", "-", entry["title"].lower().replace("ł", "l")).strip("-")
         added.append(Match(
             source="manual",
-            source_id=entry.get("id") or f"{local:%Y%m%d}-{index}",
+            source_id=entry.get("id") or f"{local:%Y%m%d}-{slug}",
             start=local.astimezone(UTC),
             title=entry["title"],
             competition=entry["competition"],
@@ -301,6 +305,8 @@ def load_overrides(path: Path) -> tuple[list[Match], set[str]]:
             url=entry.get("url", ""),
             tv=entry.get("tv", ""),
             score=entry.get("score", ""),
+            extra=[entry["stage"]] if entry.get("stage") else [],
+            provisional=bool(entry.get("provisional", False)),
         ))
 
     dropped = {f"{d['source']}:{d['id']}" for d in config.get("drop", [])}
@@ -310,6 +316,11 @@ def load_overrides(path: Path) -> tuple[list[Match], set[str]]:
 # --- scalanie --------------------------------------------------------------
 
 SOURCE_PRIORITY = {"manual": 0, "vis": 1, "pzps": 2}
+PROVISIONAL_PRIORITY = 9   # niżej niż każde źródło — ustępuje, gdy API dogoni
+
+
+def priority(match: Match) -> int:
+    return PROVISIONAL_PRIORITY if match.provisional else SOURCE_PRIORITY[match.source]
 
 
 def merge(*groups: list[Match]) -> list[Match]:
@@ -317,7 +328,7 @@ def merge(*groups: list[Match]) -> list[Match]:
     to, czego samo nie ma (kanał TV, link, miejsce)."""
     everything = sorted(
         (m for group in groups for m in group),
-        key=lambda m: (m.start, SOURCE_PRIORITY[m.source]),
+        key=lambda m: (m.start, priority(m)),
     )
 
     merged: list[Match] = []
@@ -450,7 +461,9 @@ def main() -> None:
     print(f"\nZapisano {len(matches)} meczów do {args.output}\n", file=sys.stderr)
     for match in sorted(matches, key=lambda m: m.start):
         local = match.start.astimezone(WARSAW)
-        print(f"  {local:%Y-%m-%d %a %H:%M}  [{match.key:>10}]  {match.summary}", file=sys.stderr)
+        flag = " (tymczasowy)" if match.provisional else ""
+        print(f"  {local:%Y-%m-%d %a %H:%M}  [{match.key:>10}]  {match.summary}{flag}",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":

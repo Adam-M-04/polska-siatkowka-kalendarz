@@ -11,8 +11,24 @@
 #   start       wymagane, czas polski, format "RRRR-MM-DD GG:MM"
 #   title       wymagane, np. "Polska – Francja"
 #   competition wymagane, np. "Memoriał Wagnera 2026"
-#   venue, tv, url, score, id — opcjonalne
+#   venue, tv, url, score, stage, id — opcjonalne
+#
+#   provisional = true  — wpis "na zakładkę": znika automatycznie w chwili, gdy
+#   ten sam mecz (±45 min) pojawi się w VIS albo u PZPS. Używaj dla terminów
+#   znanych z mediów, zanim trafią do API — nie trzeba potem nic kasować.
 # ---------------------------------------------------------------------------
+
+# 1/8 finału ME 2026. CEV ogłosił parę 16.09, ale VIS nie ma jeszcze rekordów
+# fazy pucharowej, a PZPS trzyma tylko anonimowy wpis "1/8 finału".
+# Godzina za TVP Sport i Polsat Sport, zgodna z placeholderem PZPS.
+[[add]]
+start = "2026-09-19 15:00"
+title = "Polska – Łotwa"
+competition = "Mistrzostwa Europy 2026"
+stage = "1/8 finału"
+venue = "Arena 8888 Sofia"
+tv = "Polsat"
+provisional = true
 
 # Memoriał Wagnera 2026 — nie ma go w VIS (turniej towarzyski, poza FIVB/CEV),
 # a PZPS nie wpisał tej edycji do swojego kalendarza, choć edycję 2025 miał.

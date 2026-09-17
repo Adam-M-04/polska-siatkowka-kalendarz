@@ -1,0 +1,52 @@
+# Ręczne uzupełnienia i poprawki.
+#
+# Wszystko tutaj ma pierwszeństwo przed danymi z API. Wpisy starsze niż okno
+# kalendarza (domyślnie 12 miesięcy wstecz) są pomijane automatycznie — nie
+# trzeba ich kasować.
+
+
+# ---------------------------------------------------------------------------
+# [[add]] — mecz, którego nie ma ani w VIS, ani u PZPS.
+#
+#   start       wymagane, czas polski, format "RRRR-MM-DD GG:MM"
+#   title       wymagane, np. "Polska – Francja"
+#   competition wymagane, np. "Memoriał Wagnera 2026"
+#   venue, tv, url, score, id — opcjonalne
+# ---------------------------------------------------------------------------
+
+# Memoriał Wagnera 2026 — nie ma go w VIS (turniej towarzyski, poza FIVB/CEV),
+# a PZPS nie wpisał tej edycji do swojego kalendarza, choć edycję 2025 miał.
+[[add]]
+start = "2026-08-28 20:30"
+title = "Polska – Słowenia"
+competition = "Memoriał Wagnera 2026"
+venue = "TAURON Arena Kraków"
+tv = "Polsat Sport"
+
+[[add]]
+start = "2026-08-29 17:00"
+title = "Polska – USA"
+competition = "Memoriał Wagnera 2026"
+venue = "TAURON Arena Kraków"
+tv = "Polsat Sport"
+
+[[add]]
+start = "2026-08-30 17:00"
+title = "Polska – Francja"
+competition = "Memoriał Wagnera 2026"
+venue = "TAURON Arena Kraków"
+tv = "Polsat Sport"
+
+
+# ---------------------------------------------------------------------------
+# [[drop]] — wpis ze źródła, który jest błędny albo zbędny.
+# Identyfikator w nawiasach kwadratowych wypisuje `python3 generate.py` przy
+# każdym meczu, np. [    pzps:826].
+# ---------------------------------------------------------------------------
+
+# PZPS wpisał ten mecz o dobę za wcześnie (19.07 zamiast 20.07 czasu polskiego).
+# VIS ma poprawnie: 19.07 20:00 czasu Chicago = 20.07 01:00 czasu polskiego.
+[[drop]]
+source = "pzps"
+id = "826"
+reason = "błędna data — mecz VNL Chicago wpisany o 24 h za wcześnie"

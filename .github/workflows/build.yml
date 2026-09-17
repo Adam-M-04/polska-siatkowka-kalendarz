@@ -1,0 +1,72 @@
+name: Zbuduj i opublikuj kalendarz
+
+on:
+  schedule:
+    # Co 4 godziny. GitHub potrafi opóźnić harmonogram o kilkanaście minut —
+    # dla kalendarza meczów to bez znaczenia.
+    - cron: "17 */4 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write      # potrzebne tylko dla kroku "keepalive"
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"     # tomllib wymaga 3.11+
+
+      - name: Wygeneruj kalendarz
+        run: |
+          python generate.py --output public/kadra-mezczyzn.ics
+          cp index.html public/
+
+      - name: Sprawdź, czy plik jest sensowny
+        run: |
+          test -s public/kadra-mezczyzn.ics
+          grep -q "^BEGIN:VCALENDAR" public/kadra-mezczyzn.ics
+          grep -q "^END:VCALENDAR" public/kadra-mezczyzn.ics
+          echo "Wydarzeń w pliku: $(grep -c '^BEGIN:VEVENT' public/kadra-mezczyzn.ics)"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      # GitHub wyłącza harmonogram w repozytorium, w którym przez 60 dni nic się
+      # nie działo. Poza sezonem reprezentacji taka przerwa jest realna, więc raz
+      # na 45 dni wypychamy pusty commit, żeby licznik się zresetował.
+      - name: Keepalive harmonogramu
+        if: github.event_name == 'schedule'
+        run: |
+          ostatni=$(git log -1 --format=%ct)
+          teraz=$(date +%s)
+          if [ $(( (teraz - ostatni) / 86400 )) -ge 45 ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "keepalive: podtrzymanie harmonogramu"
+            git push
+          else
+            echo "Ostatni commit jest świeży — keepalive niepotrzebny."
+          fi
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

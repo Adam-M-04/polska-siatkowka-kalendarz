@@ -12,7 +12,13 @@ Generator kanału .ics z meczami reprezentacji Polski mężczyzn w siatkówce.
      https://www.pzps.pl/strapi/api/events
      Dokłada mecze towarzyskie i turnieje towarzyskie oraz kanał TV.
 
-  3. overrides.toml — ręczne uzupełnienia i poprawki dla tego, czego nie ma
+  3. Strona CEV (www-old.cev.eu) — OBEJŚCIE NA JEDNĄ IMPREZĘ, patrz sekcja
+     "źródło 3". VIS wypełnia rekordy fazy pucharowej dopiero dzień przed
+     meczem, a CEV ma parę i godzinę od razu po rozstrzygnięciu poprzedniej
+     rundy. Wygasa samo po ME 2026 — na kolejne turnieje trzeba znaleźć
+     rozwiązanie docelowe.
+
+  4. overrides.toml — ręczne uzupełnienia i poprawki dla tego, czego nie ma
      w żadnym z API (np. Memoriał Wagnera) albo co jest tam błędne.
 
 Użycie:
@@ -113,7 +119,7 @@ def pl_competition(name: str) -> str:
 
 @dataclass
 class Match:
-    source: str           # "vis" | "pzps" | "manual"
+    source: str           # "vis" | "cev" | "pzps" | "manual"
     source_id: str
     start: datetime       # zawsze świadomy strefy
     title: str            # "Polska – Bułgaria"
@@ -281,7 +287,121 @@ def from_pzps(start: datetime, end: datetime) -> list[Match]:
     return out
 
 
-# --- źródło 3: overrides.toml ---------------------------------------------
+# --- źródło 3: strona CEV ----------------------------------------------------
+#
+# ============================================================================
+#  OBEJŚCIE DORAŹNE — WYŁĄCZNIE NA ME 2026 MĘŻCZYZN (EuroVolley, wrzesień 2026)
+#
+#  Po co: VIS trzyma ćwierćfinały, półfinały i mecze medalowe jako puste
+#  rekordy — bez daty i bez nazw drużyn — i wypełnia je dopiero jakąś dobę
+#  przed meczem. Para Polska–Niemcy była znana od 19.09 wieczorem, a 21.09
+#  po południu w VIS nadal jej nie było. Stara strona CEV ma ją od razu.
+#
+#  Dlaczego to nie jest rozwiązanie docelowe:
+#    * to parser HTML-a ASP.NET-owego serwisu, który sam CEV oznaczył jako
+#      stary ("www-old") — może zniknąć bez uprzedzenia,
+#    * numer turnieju (ID) jest wpisany na sztywno, dla każdej kolejnej
+#      imprezy trzeba go znaleźć ręcznie,
+#    * godziny są lokalne dla hali, więc strefę wyliczamy z kodu kraju
+#      w nagłówku sekcji, a nie z danych,
+#    * obejmuje tylko rozgrywki CEV — przy FIVB (Liga Narodów, MŚ, igrzyska)
+#      problem trzeba będzie zbadać osobno.
+#
+#  Dlatego ma datę ważności: po CEV_EVENT["until"] parser sam przestaje
+#  pobierać cokolwiek i kalendarz wraca do samego VIS i PZPS.
+#  Na kolejne turnieje: znaleźć rozwiązanie docelowe, nie kopiować tego.
+# ============================================================================
+
+CEV_EVENT = {
+    "url": "https://www-old.cev.eu/Competition-Area/Competition.aspx?ID=1572&PID=2990",
+    "competition": "Mistrzostwa Europy 2026",
+    "year": 2026,
+    "until": datetime(2026, 9, 28, tzinfo=UTC),   # dzień po finale — potem parser milczy
+}
+
+# Godziny na stronie CEV są lokalne dla hali; kraj bierzemy z nagłówka sekcji.
+CEV_TIMEZONES = {
+    "BUL": "Europe/Sofia", "ITA": "Europe/Rome", "FIN": "Europe/Helsinki",
+    "ROU": "Europe/Bucharest", "POL": "Europe/Warsaw", "TUR": "Europe/Istanbul",
+    "CZE": "Europe/Prague", "SWE": "Europe/Stockholm", "AZE": "Asia/Baku",
+}
+
+CEV_ROUNDS = {
+    "Eight Final": "1/8 finału", "Quarter Final": "ćwierćfinał",
+    "Semifinal": "półfinał", "Bronze Medal": "mecz o brąz", "Gold Medal": "finał",
+}
+
+CEV_ROW = re.compile(r'id="[^"]*Matches_ctrl\d+_LB_FMN"[^>]*>(.*?)</span>', re.S)
+CEV_FIELD = re.compile(
+    r'id="[^"]*Matches_ctrl\d+_(LB_Home|LB_Guest|Td12|Td4)"[^>]*>(.*?)</span>', re.S)
+CEV_HEADER = re.compile(r"([A-Za-z ]+?(?:matches|Match)) in ([A-Z]{3})")
+CEV_PLACEHOLDER = re.compile(r"winner|loser|\bof\b", re.I)
+
+
+def _text(fragment: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", fragment)).strip()
+
+
+def from_cev(start: datetime, end: datetime) -> list[Match]:
+    if datetime.now(UTC) > CEV_EVENT["until"]:
+        print("CEV: turniej zakończony, parser pominięty.", file=sys.stderr)
+        return []
+
+    try:
+        page = fetch(CEV_EVENT["url"]).decode("utf-8", errors="replace")
+    except SystemExit as exc:            # źródło pomocnicze nie może wywalić buildu
+        print(f"CEV: {exc} — pomijam to źródło.", file=sys.stderr)
+        return []
+
+    # Pozycja każdego nagłówka "<faza> matches in <KRAJ>" — rundę i strefę czasową
+    # meczu bierzemy z ostatniego nagłówka przed jego wierszem.
+    headers = [(m.start(), m.group(1).strip(), m.group(2)) for m in CEV_HEADER.finditer(page)]
+
+    out: dict[str, Match] = {}
+    rows = list(CEV_ROW.finditer(page))
+    for index, row in enumerate(rows):
+        code = _text(row.group(1))
+        if not code:
+            continue
+        segment = page[row.end(): rows[index + 1].start() if index + 1 < len(rows) else row.end() + 4000]
+        fields = {m.group(1): _text(m.group(2)) for m in CEV_FIELD.finditer(segment)}
+
+        home, guest = fields.get("LB_Home", ""), fields.get("LB_Guest", "")
+        date_text, time_text = fields.get("Td12", ""), fields.get("Td4", "")
+        if not (home and guest and date_text and time_text):
+            continue
+        if CEV_PLACEHOLDER.search(home) or CEV_PLACEHOLDER.search(guest):
+            continue                     # np. "Winner of MEF-03" — para jeszcze nieznana
+        if TEAM_VIS not in (home.title(), guest.title()):
+            continue
+
+        phase, country = next(((p, c) for pos, p, c in reversed(headers) if pos < row.start()),
+                              ("", ""))
+        zone = CEV_TIMEZONES.get(country)
+        if zone is None:
+            print(f"CEV: nieznany kraj {country!r} przy {code} — pomijam.", file=sys.stderr)
+            continue
+
+        day, month = (int(x) for x in date_text.split("/"))
+        hour, minute = (int(x) for x in time_text.split(":"))
+        moment = datetime(CEV_EVENT["year"], month, day, hour, minute,
+                          tzinfo=ZoneInfo(zone)).astimezone(UTC)
+        if not start <= moment <= end:
+            continue
+
+        round_name = next((pl for en, pl in CEV_ROUNDS.items() if phase.startswith(en)), "")
+        out[code] = Match(
+            source="cev",
+            source_id=code,
+            start=moment,
+            title=f"{pl_country(home.title())} – {pl_country(guest.title())}",
+            competition=CEV_EVENT["competition"],
+            extra=[round_name] if round_name else [],
+        )
+    return list(out.values())
+
+
+# --- źródło 4: overrides.toml ---------------------------------------------
 
 def load_overrides(path: Path) -> tuple[list[Match], set[str]]:
     if not path.exists():
@@ -315,7 +435,7 @@ def load_overrides(path: Path) -> tuple[list[Match], set[str]]:
 
 # --- scalanie --------------------------------------------------------------
 
-SOURCE_PRIORITY = {"manual": 0, "vis": 1, "pzps": 2}
+SOURCE_PRIORITY = {"manual": 0, "vis": 1, "cev": 2, "pzps": 3}
 PROVISIONAL_PRIORITY = 9   # niżej niż każde źródło — ustępuje, gdy API dogoni
 
 
@@ -440,12 +560,13 @@ def main() -> None:
     print(f"Okno: {start:%Y-%m-%d} … {end:%Y-%m-%d}", file=sys.stderr)
 
     vis = from_vis(start, end)
+    cev = from_cev(start, end)
     pzps = from_pzps(start, end)
     manual, dropped = load_overrides(args.overrides)
-    print(f"Pobrano — VIS: {len(vis)}, PZPS: {len(pzps)}, ręczne: {len(manual)}, "
-          f"do pominięcia: {len(dropped)}", file=sys.stderr)
+    print(f"Pobrano — VIS: {len(vis)}, CEV: {len(cev)}, PZPS: {len(pzps)}, "
+          f"ręczne: {len(manual)}, do pominięcia: {len(dropped)}", file=sys.stderr)
 
-    kept = [m for m in vis + pzps + manual
+    kept = [m for m in vis + cev + pzps + manual
             if m.key not in dropped and start <= m.start <= end]
     matches = merge(kept)
 

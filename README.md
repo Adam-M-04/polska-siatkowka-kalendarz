@@ -32,6 +32,7 @@ Strona z gotowym przyciskiem subskrypcji: `https://Adam-M-04.github.io/polska-si
 |---|---|---|
 | **FIVB VIS** — `fivb.org/vis2009/XmlRequest.asmx` | Liga Narodów, MŚ, **EuroVolley** (CEV korzysta z tego samego systemu), igrzyska | Publiczne XML API, bez klucza. Zwraca czas w UTC i wyniki meczów. Źródło nadrzędne. |
 | **PZPS** — `pzps.pl/strapi/api/events` | Mecze i turnieje towarzyskie, kanał TV, linki do biletów | Publiczne JSON API stojące za `pzps.pl/pl/kalendarium`. |
+| **CEV** — `www-old.cev.eu` | Faza pucharowa ME 2026, zanim trafi do VIS | **Obejście doraźne, tylko na ten jeden turniej** — patrz niżej. |
 | **`overrides.toml`** | To, czego nie ma nigdzie indziej | Ręcznie, kilka wpisów rocznie. |
 
 Przy duplikacie (ten sam mecz w obu API) wygrywa VIS, ale zabiera z wpisu PZPS
@@ -56,6 +57,30 @@ Trzy mecze rocznie — wpisuje się je ręcznie do `overrides.toml`.
 
 Zdarzają się też błędy w danych PZPS: mecz VNL z Chicago mieli wpisany o dobę
 za wcześnie. Takie wpisy wyrzuca się sekcją `[[drop]]`.
+
+### Faza pucharowa: dlaczego jest tu parser CEV i dlaczego jest tymczasowy
+
+VIS trzyma ćwierćfinały, półfinały i mecze medalowe jako **puste rekordy — bez
+daty i bez nazw drużyn** — i wypełnia je dopiero jakąś dobę przed meczem. Para
+Polska–Niemcy w ćwierćfinale ME 2026 była znana od 19.09 wieczorem, a 21.09 po
+południu w VIS nadal jej nie było. PZPS ma w tym czasie tylko anonimowe
+„ćwierćfinały”, w dodatku z godziną 15:00, podczas gdy mecz był o 18:00.
+
+Stara strona CEV ma parę i godzinę od razu. Stąd `from_cev()` w `generate.py` —
+ale to **obejście na jedną imprezę**, nie rozwiązanie docelowe:
+
+- parsuje HTML serwisu, który sam CEV oznaczył jako stary (`www-old`),
+- numer turnieju (`ID=1572`) jest wpisany na sztywno,
+- godziny są lokalne dla hali, więc strefę wyliczamy z kodu kraju w nagłówku
+  sekcji, a nie z danych,
+- obejmuje wyłącznie rozgrywki CEV; przy FIVB (Liga Narodów, MŚ, igrzyska)
+  problem trzeba zbadać osobno.
+
+Dlatego ma **datę ważności**: `CEV_EVENT["until"]` to 28.09.2026 — dzień po
+finale. Po niej parser sam przestaje cokolwiek pobierać i kalendarz wraca do
+samego VIS i PZPS. **Na kolejne turnieje trzeba znaleźć rozwiązanie docelowe,
+nie kopiować tego.** Źródło jest pomocnicze: jeśli strona padnie albo zmieni
+układ, parser zwraca zero i wypisuje ostrzeżenie, ale build nie pada.
 
 ---
 

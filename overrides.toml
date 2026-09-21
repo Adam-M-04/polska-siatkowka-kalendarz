@@ -18,18 +18,6 @@
 #   znanych z mediów, zanim trafią do API — nie trzeba potem nic kasować.
 # ---------------------------------------------------------------------------
 
-# 1/8 finału ME 2026. CEV ogłosił parę 16.09, ale VIS nie ma jeszcze rekordów
-# fazy pucharowej, a PZPS trzyma tylko anonimowy wpis "1/8 finału".
-# Godzina za TVP Sport i Polsat Sport, zgodna z placeholderem PZPS.
-[[add]]
-start = "2026-09-19 15:00"
-title = "Polska – Łotwa"
-competition = "Mistrzostwa Europy 2026"
-stage = "1/8 finału"
-venue = "Arena 8888 Sofia"
-tv = "Polsat"
-provisional = true
-
 # Memoriał Wagnera 2026 — nie ma go w VIS (turniej towarzyski, poza FIVB/CEV),
 # a PZPS nie wpisał tej edycji do swojego kalendarza, choć edycję 2025 miał.
 [[add]]
